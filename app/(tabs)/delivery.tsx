@@ -17,24 +17,25 @@ function DeliveryScreenComponent() {
   const [loading, setLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.DELIVERY);
+  const [deliverableOrders, setDeliverableOrders] = useState<Set<string>>(new Set());
+  const [activeTimers, setActiveTimers] = useState<{[key: string]: NodeJS.Timeout}>({});
 
   useEffect(() => {
     loadPreparingOrders();
     
-    // Suscribirse a los cambios de estado de los pedidos
     const unsubscribe = socketService.subscribeToOrderUpdates((orderId, status) => {
       console.log(`Actualización de pedido recibida: ${orderId} - ${status}`);
       loadPreparingOrders();
     });
     
     return () => {
+      Object.values(activeTimers).forEach(timer => clearTimeout(timer));
       unsubscribe();
     };
   }, []);
 
   const handleRoleChange = async (role: UserRole) => {
     setCurrentRole(role);
-    // Si es el rol de repartidor, cargar pedidos
     if (role === UserRole.DELIVERY) {
       loadPreparingOrders();
     }
@@ -53,13 +54,68 @@ function DeliveryScreenComponent() {
     }
   };
 
+  const startDeliveryTimer = (orderId: string) => {
+    const DELIVERY_TIME = 10000;
+    
+    if (activeTimers[orderId]) {
+      clearTimeout(activeTimers[orderId]);
+    }
+
+    const timer = setTimeout(() => {
+      setDeliverableOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.add(orderId);
+        return newSet;
+      });
+      
+      setActiveTimers(prev => {
+        const newTimers = {...prev};
+        delete newTimers[orderId];
+        return newTimers;
+      });
+      
+      Alert.alert('Pedido listo para entregar', 'Ya puedes marcar este pedido como entregado');
+    }, DELIVERY_TIME);
+    
+    setActiveTimers(prev => ({
+      ...prev,
+      [orderId]: timer
+    }));
+  };
+
   const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
     try {
       console.log(`Actualizando estado del pedido ${orderId} a ${newStatus}`);
       
+      if (newStatus === OrderStatus.DELIVERED && !deliverableOrders.has(orderId)) {
+        Alert.alert(
+          'Entrega en progreso', 
+          'El pedido aún está en camino. Debes esperar a llegar al destino antes de marcarlo como entregado.',
+          [{ text: 'Entendido' }]
+        );
+        return;
+      }
+      
+      if (newStatus === OrderStatus.ON_THE_WAY) {
+        Alert.alert('Iniciando entrega', 'Preparando la entrega del pedido...');
+        
+        startDeliveryTimer(orderId);
+      }
+      
       await apiService.updateOrderStatus(orderId, newStatus);
       
-      // Si el pedido fue entregado, deseleccionarlo
+      if (newStatus === OrderStatus.ON_THE_WAY) {
+        Alert.alert('Entrega iniciada', 'El cliente ahora puede seguir la entrega en el mapa');
+      } else if (newStatus === OrderStatus.DELIVERED) {
+        Alert.alert('¡Entrega completada!', 'El pedido ha sido entregado exitosamente');
+        
+        setDeliverableOrders(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(orderId);
+          return newSet;
+        });
+      }
+      
       if (newStatus === OrderStatus.DELIVERED) {
         setSelectedOrder(null);
       }
@@ -107,10 +163,17 @@ function DeliveryScreenComponent() {
 
       {item.status === OrderStatus.ON_THE_WAY && (
         <TouchableOpacity
-          style={[styles.actionButton, styles.deliveredButton]}
+          style={[
+            styles.actionButton, 
+            deliverableOrders.has(item.id) ? styles.deliveredButton : styles.disabledButton
+          ]}
           onPress={() => handleStatusUpdate(item.id, OrderStatus.DELIVERED)}
         >
-          <Text style={styles.actionButtonText}>Marcar como entregado</Text>
+          <Text style={styles.actionButtonText}>
+            {deliverableOrders.has(item.id) 
+              ? "Marcar como entregado" 
+              : "En camino (espera para entregar)"}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -245,6 +308,9 @@ const styles = StyleSheet.create({
   },
   deliveredButton: {
     backgroundColor: '#34C759',
+  },
+  disabledButton: {
+    backgroundColor: '#999',
   },
   actionButtonText: {
     color: 'white',

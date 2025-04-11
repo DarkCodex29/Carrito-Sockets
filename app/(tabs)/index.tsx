@@ -59,6 +59,14 @@ function UserScreenComponent() {
     if (statusMessages[data.status]) {
       Alert.alert('Actualización de pedido', statusMessages[data.status]);
     }
+
+    // Añadir log para depuración
+    console.log(`Orden ${data.orderId} actualizada a estado ${data.status}`);
+    
+    // Si el pedido pasó a estar en camino, forzar la actualización de la vista
+    if (data.status === OrderStatus.ON_THE_WAY) {
+      console.log('Pedido en camino, debería mostrar el mapa');
+    }
   };
 
   useEffect(() => {
@@ -241,17 +249,22 @@ function UserScreenComponent() {
               <View style={styles.orderStatus}>
                 <Text style={styles.orderTitle}>Tu pedido #{currentOrder.id}</Text>
                 <OrderStatusComponent status={currentOrder.status} />
+                <Text>Estado actual: {currentOrder.status}</Text>
               </View>
             
-              {currentOrder.status === OrderStatus.ON_THE_WAY && (
+              {currentOrder.status === OrderStatus.ON_THE_WAY ? (
                 <View style={styles.mapContainer}>
                   <Text style={styles.mapTitle}>Seguimiento de tu pedido</Text>
                   <OrderTrackingMap 
                     orderId={currentOrder.id} 
                     status={currentOrder.status}
-                    key={`map-${currentOrder.id}-${currentOrder.status}`}
+                    key={`map-${currentOrder.id}-${Date.now()}`}
                   />
                 </View>
+              ) : (
+                <Text style={{ textAlign: 'center', padding: 10, color: '#666' }}>
+                  El mapa estará disponible cuando tu pedido esté en camino
+                </Text>
               )}
             </>
           )}

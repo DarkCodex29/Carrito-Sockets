@@ -18,7 +18,6 @@ class AuthService {
     role: UserRole.CUSTOMER 
   };
   private currentRole: UserRole = UserRole.CUSTOMER;
-  private initialized: boolean = true; // Inicializado por defecto
   
   private constructor() {
     console.log('Auth Service inicializado con valores simulados');

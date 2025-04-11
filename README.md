@@ -46,16 +46,12 @@ Carrito-Sockets es una aplicación de entrega de comida que simula el proceso co
    npm install
    ```
 
-3. **Configurar Google Maps API**:
-   - Obtén una clave API de Google Maps en [Google Cloud Console](https://console.cloud.google.com/)
-   - Reemplaza `YOUR_API_KEY_HERE` en `android/app/src/main/AndroidManifest.xml` con tu clave
-
-4. **Iniciar la aplicación**:
+3. **Iniciar la aplicación**:
    ```bash
    npx expo start
    ```
 
-5. **Ejecutar en dispositivo o emulador**:
+4. **Ejecutar en dispositivo o emulador**:
    - Presiona `a` para Android
    - Presiona `i` para iOS (solo macOS)
    - Escanea el código QR con la app Expo Go en tu dispositivo
@@ -78,9 +74,9 @@ carrito-sockets/
 
 ### El mapa no se muestra
 
-1. Verifica que has configurado correctamente la API Key de Google Maps
-2. Asegúrate de tener los permisos de ubicación habilitados en el dispositivo
-3. Comprueba la conexión a internet
+1. Asegúrate de tener los permisos de ubicación habilitados en el dispositivo
+2. Comprueba la conexión a internet
+3. Reinicia la aplicación si el mapa no se carga correctamente
 
 ### No se reciben notificaciones o vibraciones
 

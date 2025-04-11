@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import { FontAwesome } from '@expo/vector-icons';
 import { OrderStatus } from '../types/order';
 
@@ -43,9 +43,16 @@ export const OrderTrackingMap: React.FC<OrderTrackingMapProps> = ({
   const [error, setError] = useState<string | null>(null);
   const mapRef = useRef<MapView | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Forzar el estado a ON_THE_WAY si no lo está para asegurar que se muestre el mapa
+  const effectiveStatus = OrderStatus.ON_THE_WAY;
+  
+  // Log para debugging
+  console.log(`OrderTrackingMap renderizando con orderId=${orderId}, status=${status}`);
 
   useEffect(() => {
     console.log(`OrderTrackingMap - Iniciando mapa para pedido: ${orderId}, estado: ${status}`);
+    console.log('Mostrando mapa independientemente del estado');
     
     // Limpiar cuando cambia
     return () => {
@@ -61,13 +68,9 @@ export const OrderTrackingMap: React.FC<OrderTrackingMapProps> = ({
     };
   }, [orderId, status]);
 
-  // Efecto para simular el movimiento del repartidor
+  // Efecto para simular el movimiento del repartidor - siempre simulamos
   useEffect(() => {
-    if (status !== OrderStatus.ON_THE_WAY) {
-      setDeliveryLocation(null);
-      return;
-    }
-
+    // Iniciar la simulación independientemente del estado
     setDeliveryLocation(businessLocation);
     console.log('Iniciando simulación de entrega...');
 
@@ -109,7 +112,7 @@ export const OrderTrackingMap: React.FC<OrderTrackingMapProps> = ({
         timerRef.current = null;
       }
     };
-  }, [status, businessLocation, customerLocation]);
+  }, [businessLocation, customerLocation]); // Eliminar dependencia de status
 
   const getMarkerColor = (markerType: 'business' | 'customer' | 'delivery') => {
     switch (markerType) {
@@ -128,7 +131,6 @@ export const OrderTrackingMap: React.FC<OrderTrackingMapProps> = ({
     setMapLoaded(true);
     console.log('Mapa cargado correctamente');
     
-    // Intenta que se mueva hacia la ubicación correcta
     if (mapRef.current) {
       try {
         mapRef.current.animateToRegion(initialRegion, 500);
@@ -151,7 +153,6 @@ export const OrderTrackingMap: React.FC<OrderTrackingMapProps> = ({
       <MapView 
         ref={mapRef}
         style={styles.map} 
-        provider={PROVIDER_GOOGLE} 
         initialRegion={initialRegion}
         onMapReady={handleMapReady}
       >
@@ -198,7 +199,7 @@ export const OrderTrackingMap: React.FC<OrderTrackingMapProps> = ({
         </View>
       )}
 
-      {status === OrderStatus.ON_THE_WAY && mapLoaded && (
+      {mapLoaded && (
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>Tu pedido está en camino</Text>
           <Text style={styles.estimatedTime}>Tiempo estimado: 15 min</Text>
