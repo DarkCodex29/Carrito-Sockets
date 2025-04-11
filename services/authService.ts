@@ -1,13 +1,7 @@
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged, 
-  User,
-  updateProfile
-} from 'firebase/auth';
-import { auth, db } from './firebaseConfig';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+/**
+ * Servicio de autenticación simulado
+ */
+import mockBackendService, { User } from './mockBackendService';
 
 export enum UserRole {
   CUSTOMER = 'CUSTOMER',
@@ -15,101 +9,141 @@ export enum UserRole {
   DELIVERY = 'DELIVERY'
 }
 
-interface UserData {
-  uid: string;
-  email: string;
-  name?: string; 
-  displayName?: string;
-  role: UserRole;
-}
-
 class AuthService {
   private static instance: AuthService;
-  private currentUser: User | null = null;
-
+  private currentUser: User = { 
+    id: 'customer-123', 
+    name: 'Cliente Demo', 
+    email: 'cliente@example.com', 
+    role: UserRole.CUSTOMER 
+  };
+  private currentRole: UserRole = UserRole.CUSTOMER;
+  private initialized: boolean = false;
+  
   private constructor() {
-    onAuthStateChanged(auth, (user) => {
-      this.currentUser = user;
-    });
+    console.log('Auth Service inicializado con valores simulados');
+    // Cargar usuario por defecto inmediatamente
+    this.loadInitialUser();
   }
-
+  
+  private async loadInitialUser() {
+    try {
+      const user = await mockBackendService.getCurrentUser();
+      if (user) {
+        this.currentUser = user;
+        this.currentRole = user.role as UserRole;
+      }
+      this.initialized = true;
+      console.log(`Usuario inicial cargado: ${this.currentUser.id}`);
+    } catch (error) {
+      console.error('Error al cargar usuario inicial:', error);
+      // Mantenemos el usuario por defecto
+      this.initialized = true;
+    }
+  }
+  
   static getInstance(): AuthService {
     if (!AuthService.instance) {
       AuthService.instance = new AuthService();
     }
     return AuthService.instance;
   }
-
-  async register(email: string, password: string, displayName: string, role: UserRole): Promise<UserData> {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      await updateProfile(user, { displayName });
-
-      const userData: UserData = {
-        uid: user.uid,
-        email,
-        name: displayName, 
-        displayName,
-        role
-      };
-
-      await setDoc(doc(db, 'users', user.uid), userData);
-
-      return userData;
-    } catch (error) {
-      console.error('Error al registrar usuario:', error);
-      throw error;
+  
+  // Aseguramos que el servicio está inicializado antes de devolver datos
+  private async ensureInitialized(): Promise<void> {
+    if (!this.initialized) {
+      await new Promise<void>(resolve => {
+        const checkInterval = setInterval(() => {
+          if (this.initialized) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 50);
+      });
     }
   }
-
-  async login(email: string, password: string): Promise<User> {
+  
+  async isAuthenticated(): Promise<boolean> {
+    await this.ensureInitialized();
+    return true; // Siempre autenticado en modo simulación
+  }
+  
+  async getCurrentUser(): Promise<User> {
+    await this.ensureInitialized();
+    return this.currentUser;
+  }
+  
+  async getCurrentUserRole(): Promise<UserRole> {
+    await this.ensureInitialized();
+    return this.currentRole;
+  }
+  
+  async hasRole(role: UserRole): Promise<boolean> {
+    await this.ensureInitialized();
+    return this.currentRole === role;
+  }
+  
+  // Método para cambiar de rol simulando diferentes usuarios
+  async switchRole(role: UserRole): Promise<void> {
+    await this.ensureInitialized();
+    
+    let userId;
+    switch (role) {
+      case UserRole.BUSINESS:
+        userId = 'business-123';
+        break;
+      case UserRole.DELIVERY:
+        userId = 'delivery-123';
+        break;
+      default:
+        userId = 'customer-123';
+        break;
+    }
+    
+    const user = await mockBackendService.getUserById(userId);
+    if (user) {
+      this.currentUser = user;
+      this.currentRole = role;
+      console.log(`Rol cambiado a: ${role}, usuario: ${userId}`);
+    }
+  }
+  
+  // Simula login de usuarios según su rol
+  async loginWithRole(role: UserRole): Promise<User> {
+    await this.ensureInitialized();
+    
+    let userId;
+    switch (role) {
+      case UserRole.BUSINESS:
+        userId = 'business-123';
+        break;
+      case UserRole.DELIVERY:
+        userId = 'delivery-123';
+        break;
+      case UserRole.CUSTOMER:
+      default:
+        userId = 'customer-123';
+        break;
+    }
+    
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      return userCredential.user;
+      const user = await mockBackendService.getUserById(userId);
+      if (user) {
+        this.currentUser = user;
+        this.currentRole = role;
+        return user;
+      }
+      throw new Error(`Usuario con rol ${role} no encontrado`);
     } catch (error) {
       console.error('Error al iniciar sesión:', error);
       throw error;
     }
   }
-
+  
   async logout(): Promise<void> {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-      throw error;
-    }
-  }
-
-  getCurrentUser(): User | null {
-    return this.currentUser || auth.currentUser;
-  }
-
-  isAuthenticated(): boolean {
-    return !!this.getCurrentUser();
-  }
-
-  async getCurrentUserRole(): Promise<UserRole | null> {
-    const user = this.getCurrentUser();
-    if (!user) return null;
-
-    try {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists()) {
-        return userDoc.data().role as UserRole;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error al obtener el rol del usuario:', error);
-      return null;
-    }
-  }
-
-  async hasRole(role: UserRole): Promise<boolean> {
-    const userRole = await this.getCurrentUserRole();
-    return userRole === role;
+    // No eliminamos el usuario, solo cambiamos al rol por defecto
+    await this.switchRole(UserRole.CUSTOMER);
+    console.log('Sesión cerrada');
   }
 }
 

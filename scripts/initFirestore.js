@@ -13,40 +13,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-
-const sampleProducts = [
-  {
-    name: 'Hamburguesa Clásica',
-    price: 80,
-    image: 'https://via.placeholder.com/150',
-    description: 'Deliciosa hamburguesa con carne, lechuga, tomate y queso'
-  },
-  {
-    name: 'Pizza Margherita',
-    price: 120,
-    image: 'https://via.placeholder.com/150',
-    description: 'Pizza tradicional italiana con tomate, mozzarella y albahaca'
-  },
-  {
-    name: 'Tacos al Pastor',
-    price: 60,
-    image: 'https://via.placeholder.com/150',
-    description: 'Tres tacos de cerdo marinado con piña, cebolla y cilantro'
-  },
-  {
-    name: 'Ensalada César',
-    price: 70,
-    image: 'https://via.placeholder.com/150',
-    description: 'Clásica ensalada con pollo, crutones, queso parmesano y aderezo César'
-  },
-  {
-    name: 'Refresco',
-    price: 25,
-    image: 'https://via.placeholder.com/150',
-    description: 'Refresco de cola, 500ml'
-  }
-];
-
 async function initializeProducts() {
   try {
     const productsRef = collection(db, 'products');

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setOrders, updateOrderStatus } from '../../store/orderSlice';
@@ -8,32 +8,26 @@ import apiService from '../../services/apiService';
 import socketService, { OrderStatus } from '../../services/socketService';
 import authService, { UserRole } from '../../services/authService';
 import { OrderTrackingMap } from '../../components/OrderTrackingMap';
+import { RoleSelector } from '../../components/RoleSelector';
 
 function DeliveryScreenComponent() {
   const dispatch = useDispatch();
   const orders = useSelector((state: RootState) => state.orders.orders);
   const [loading, setLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.DELIVERY);
 
   useEffect(() => {
-    const checkDeliveryRole = async () => {
-      try {
-        const isDelivery = await authService.hasRole(UserRole.DELIVERY);
-        if (!isDelivery) {
-          Alert.alert(
-            'Acceso restringido',
-            'Esta pantalla es solo para repartidores',
-            [{ text: 'Entendido' }]
-          );
-        }
-      } catch (error) {
-        console.error('Error al verificar rol:', error);
-      }
-    };
-
-    checkDeliveryRole();
     loadPreparingOrders();
   }, []);
+
+  const handleRoleChange = async (role: UserRole) => {
+    setCurrentRole(role);
+    // Si es el rol de repartidor, cargar pedidos
+    if (role === UserRole.DELIVERY) {
+      loadPreparingOrders();
+    }
+  };
 
   const loadPreparingOrders = async () => {
     try {
@@ -74,7 +68,7 @@ function DeliveryScreenComponent() {
         onPress={() => toggleOrderSelection(item.id)}
       >
         <Text style={styles.orderId}>Pedido #{item.id}</Text>
-        <Text style={styles.orderTotal}>Total: ${item.total}</Text>
+        <Text style={styles.orderTotal}>Total: S/ {item.total}</Text>
       </TouchableOpacity>
       
       <View style={styles.itemsList}>
@@ -116,16 +110,35 @@ function DeliveryScreenComponent() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Pedidos para Entrega</Text>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <RoleSelector onRoleChange={handleRoleChange} />
+        
+        <Text style={styles.title}>Pedidos para Entrega</Text>
+        
+        {currentRole !== UserRole.DELIVERY && (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoText}>
+              Para acceder a las funciones de repartidor, cambia tu rol a "Repartidor" en el selector superior.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
       
-      <FlatList
-        data={orders}
-        renderItem={renderOrder}
-        keyExtractor={item => item.id}
-        refreshing={loading}
-        onRefresh={loadPreparingOrders}
-        contentContainerStyle={styles.listContainer}
-      />
+      <View style={styles.listContainer}>
+        <FlatList
+          data={orders}
+          renderItem={renderOrder}
+          keyExtractor={item => item.id}
+          refreshing={loading}
+          onRefresh={loadPreparingOrders}
+          contentContainerStyle={orders.length === 0 ? styles.emptyListContainer : undefined}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No hay pedidos en preparación</Text>
+            </View>
+          }
+        />
+      </View>
     </View>
   );
 }
@@ -136,15 +149,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flexGrow: 0,
+  },
+  scrollContent: {
     padding: 16,
+  },
+  listContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  emptyListContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
-  },
-  listContainer: {
-    paddingBottom: 16,
   },
   orderCard: {
     backgroundColor: '#f8f8f8',
@@ -193,4 +218,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  infoCard: {
+    backgroundColor: '#f1f9ff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#cce5ff',
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#0066cc',
+    textAlign: 'center',
+  }
 });

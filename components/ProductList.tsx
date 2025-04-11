@@ -1,21 +1,49 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { Product } from '../data/mockData';
+import { FlatList, Text, View, TouchableOpacity, StyleSheet, Image, ImageSourcePropType } from 'react-native';
+
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  description?: string;
+  image?: ImageSourcePropType;
+}
 
 interface ProductListProps {
   products: Product[];
   onAddToCart: (product: Product) => void;
 }
 
-export const ProductList: React.FC<ProductListProps> = ({ products, onAddToCart }) => {
+export function ProductList({ products, onAddToCart }: ProductListProps) {
+  console.log('ProductList rendering with products:', products);
+  
+  // Si no hay productos, mostrar un mensaje
+  if (!products || products.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No hay productos disponibles</Text>
+      </View>
+    );
+  }
+
   const renderProduct = ({ item }: { item: Product }) => (
     <View style={styles.productCard}>
-      <Image source={{ uri: item.image }} style={styles.productImage} />
+      {item.image ? (
+        <Image source={item.image} style={styles.productImage} />
+      ) : (
+        <View style={styles.imagePlaceholder}>
+          <Text style={styles.placeholderText}>🍔</Text>
+        </View>
+      )}
+      
       <View style={styles.productInfo}>
         <Text style={styles.productName}>{item.name}</Text>
-        <Text style={styles.productPrice}>${item.price}</Text>
-        <Text style={styles.productDescription}>{item.description}</Text>
+        <Text style={styles.productPrice}>S/ {item.price}</Text>
+        {item.description && (
+          <Text style={styles.productDescription}>{item.description}</Text>
+        )}
       </View>
+      
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => onAddToCart(item)}
@@ -32,72 +60,85 @@ export const ProductList: React.FC<ProductListProps> = ({ products, onAddToCart 
         data={products}
         renderItem={renderProduct}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={styles.listContainer}
       />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 16,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 10,
   },
-  list: {
-    paddingBottom: 16,
+  listContainer: {
+    paddingBottom: 10,
   },
   productCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f8f8',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    padding: 10,
+    marginBottom: 10,
+    alignItems: 'center',
   },
   productImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 4,
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
+  imagePlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 30,
   },
   productInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
   },
   productName: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 4,
   },
   productPrice: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginBottom: 4,
+    fontSize: 14,
+    color: '#0066cc',
+    marginVertical: 4,
   },
   productDescription: {
     fontSize: 12,
     color: '#666',
   },
   addButton: {
-    width: 32,
-    height: 32,
-    backgroundColor: '#007AFF',
-    borderRadius: 16,
+    backgroundColor: '#0066cc',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center',
   },
   addButtonText: {
-    color: '#fff',
+    color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
   },
+  emptyContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+  }
 }); 

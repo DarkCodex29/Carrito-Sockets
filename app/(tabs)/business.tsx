@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setOrders, updateOrderStatus } from '../../store/orderSlice';
@@ -7,31 +7,25 @@ import { OrderStatusComponent } from '../../components/OrderStatus';
 import apiService from '../../services/apiService';
 import socketService, { OrderStatus } from '../../services/socketService';
 import authService, { UserRole } from '../../services/authService';
+import { RoleSelector } from '../../components/RoleSelector';
 
 function BusinessScreenComponent() {
   const dispatch = useDispatch();
   const orders = useSelector((state: RootState) => state.orders.orders);
   const [loading, setLoading] = useState(false);
+  const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.BUSINESS);
 
   useEffect(() => {
-    const checkBusinessRole = async () => {
-      try {
-        const isBusiness = await authService.hasRole(UserRole.BUSINESS);
-        if (!isBusiness) {
-          Alert.alert(
-            'Acceso restringido',
-            'Esta pantalla es solo para negocios',
-            [{ text: 'Entendido' }]
-          );
-        }
-      } catch (error) {
-        console.error('Error al verificar rol:', error);
-      }
-    };
-
-    checkBusinessRole();
     loadPendingOrders();
   }, []);
+
+  const handleRoleChange = async (role: UserRole) => {
+    setCurrentRole(role);
+    // Si es el rol de negocio, cargar pedidos
+    if (role === UserRole.BUSINESS) {
+      loadPendingOrders();
+    }
+  };
 
   const loadPendingOrders = async () => {
     try {
@@ -64,7 +58,7 @@ function BusinessScreenComponent() {
   const renderOrder = ({ item }: { item: any }) => (
     <View style={styles.orderCard}>
       <Text style={styles.orderId}>Pedido #{item.id}</Text>
-      <Text style={styles.orderTotal}>Total: ${item.total}</Text>
+      <Text style={styles.orderTotal}>Total: S/ {item.total}</Text>
       
       <View style={styles.itemsList}>
         {item.items.map((orderItem: any, index: number) => (
@@ -89,16 +83,35 @@ function BusinessScreenComponent() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Pedidos Pendientes</Text>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <RoleSelector onRoleChange={handleRoleChange} />
+        
+        <Text style={styles.title}>Pedidos Pendientes</Text>
+        
+        {currentRole !== UserRole.BUSINESS && (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoText}>
+              Para acceder a las funciones de negocio, cambia tu rol a "Negocio" en el selector superior.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
       
-      <FlatList
-        data={orders}
-        renderItem={renderOrder}
-        keyExtractor={item => item.id}
-        refreshing={loading}
-        onRefresh={loadPendingOrders}
-        contentContainerStyle={styles.listContainer}
-      />
+      <View style={styles.listContainer}>
+        <FlatList
+          data={orders}
+          renderItem={renderOrder}
+          keyExtractor={item => item.id}
+          refreshing={loading}
+          onRefresh={loadPendingOrders}
+          contentContainerStyle={orders.length === 0 ? styles.emptyListContainer : undefined}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No hay pedidos pendientes</Text>
+            </View>
+          }
+        />
+      </View>
     </View>
   );
 }
@@ -109,15 +122,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flexGrow: 0,
+  },
+  scrollContent: {
     padding: 16,
+  },
+  listContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  emptyListContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
-  },
-  listContainer: {
-    paddingBottom: 16,
   },
   orderCard: {
     backgroundColor: '#f8f8f8',
@@ -160,4 +185,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  infoCard: {
+    backgroundColor: '#f1f9ff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#cce5ff',
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#0066cc',
+    textAlign: 'center',
+  }
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Alert, ActivityIndicator, Text, ScrollView } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Cart } from '../../components/Cart';
 import { OrderStatusComponent } from '../../components/OrderStatus';
@@ -12,6 +12,7 @@ import authService, { UserRole } from '../../services/authService';
 import { ProductList } from '../../components/ProductList';
 import { OrderTrackingMap } from '../../components/OrderTrackingMap';
 import { mockProducts } from '../../data/mockData';
+import { RoleSelector } from '../../components/RoleSelector';
 
 function UserScreenComponent() {
   const dispatch = useDispatch();
@@ -19,20 +20,21 @@ function UserScreenComponent() {
   const [products, setProducts] = useState(mockProducts);
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.CUSTOMER);
 
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const user = authService.getCurrentUser();
+        const user = await authService.getCurrentUser();
         if (user) {
-          setUserId(user.uid);
+          setUserId(user.id);
           
           const userRole = await authService.getCurrentUserRole();
           if (userRole !== UserRole.CUSTOMER) {
             Alert.alert('Acceso restringido', 'Esta pantalla es solo para clientes');
           }
           
-          return user.uid;
+          return user.id;
         } else {
           setUserId('customer-123');
           return 'customer-123';
@@ -104,6 +106,10 @@ function UserScreenComponent() {
     };
   }, [dispatch]);
 
+  useEffect(() => {
+    console.log('Products state:', products);
+  }, [products]);
+
   const handleCheckout = async (items: any[], total: number) => {
     if (!userId) {
       Alert.alert('Error', 'No se pudo identificar al usuario');
@@ -132,7 +138,12 @@ function UserScreenComponent() {
     Alert.alert('Producto agregado', `${product.name} ha sido agregado al carrito`);
   };
 
+  const handleRoleChange = async (role: UserRole) => {
+    setCurrentRole(role);
+  };
+
   if (isLoading) {
+    console.log('Mostrando pantalla de carga...');
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -140,10 +151,20 @@ function UserScreenComponent() {
     );
   }
 
+  console.log('Renderizando pantalla de usuario...');
+  
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <ProductList products={products} onAddToCart={handleAddToCart} />
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <RoleSelector onRoleChange={handleRoleChange} />
+        {products && products.length > 0 ? (
+          <ProductList products={products as any} onAddToCart={handleAddToCart} />
+        ) : (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="small" color="#007AFF" />
+            <Text style={styles.emptyText}>Cargando productos...</Text>
+          </View>
+        )}
         
         <Cart onCheckout={handleCheckout} />
         
@@ -161,7 +182,7 @@ function UserScreenComponent() {
             )}
           </>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -173,8 +194,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  content: {
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     padding: 16,
+    paddingBottom: 30,
   },
   orderStatus: {
     marginTop: 16,
@@ -183,5 +208,16 @@ const styles = StyleSheet.create({
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    marginVertical: 20,
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   }
 });
