@@ -1,14 +1,7 @@
-/**
- * Adaptador del servicio de notificaciones para usar notificaciones locales
- * Este servicio sirve como compatibilidad para aplicaciones que esperan FCM
- */
-
-import { Platform } from 'react-native';
 import notificationService from './notificationService';
 
 class FirebaseNotificationService {
   private static instance: FirebaseNotificationService;
-  private isAvailable: boolean = false;
   
   private constructor() {
     console.log('FCM no disponible en Expo Go - usando notificaciones locales');

@@ -1,51 +1,102 @@
-# Welcome to your Expo app 👋
+# Carrito-Sockets - Aplicación de Seguimiento de Pedidos en Tiempo Real
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+[![React Native](https://img.shields.io/badge/React%20Native-Expo-blue.svg)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-blue.svg)](https://www.typescriptlang.org/)
+[![Socket.io](https://img.shields.io/badge/Socket.io-4.8.1-brightgreen.svg)](https://socket.io/)
+[![GitHub](https://img.shields.io/badge/GitHub-DarkCodex29-lightgrey.svg)](https://github.com/DarkCodex29/Carrito-Sockets)
 
-## Get started
+Aplicación móvil para seguimiento de pedidos en tiempo real que permite la comunicación entre clientes, negocios y repartidores a través de sockets.
 
-1. Install dependencies
+<div align="center">
+  <img src="https://reactnative.dev/img/header_logo.svg" alt="React Native Logo" width="120"/>
+</div>
 
+## 📱 Descripción
+
+Carrito-Sockets es una aplicación de entrega de comida que simula el proceso completo de pedidos: desde la selección de productos, la preparación por parte del negocio, hasta el seguimiento en tiempo real del repartidor a través de un mapa interactivo. La aplicación utiliza comunicación en tiempo real con sockets para actualizar el estado de los pedidos y notificar a los usuarios.
+
+## ✨ Características principales
+
+- **Roles múltiples**: Cliente, Negocio y Repartidor, cada uno con su propia interfaz y funcionalidades
+- **Carrito de compras**: Añadir productos, modificar cantidades, finalizar compra
+- **Seguimiento en tiempo real**: Visualización del pedido en un mapa interactivo
+- **Notificaciones**: Alertas con vibración en momentos clave del proceso
+- **Comunicación en tiempo real**: Actualización instantánea del estado de los pedidos
+- **Calificación de pedidos**: Sistema de valoración al finalizar una entrega
+
+## 🛠️ Tecnologías utilizadas
+
+- **React Native / Expo**: Framework para desarrollo móvil
+- **TypeScript**: Tipado estático para JavaScript
+- **Redux**: Gestión del estado global de la aplicación
+- **Socket.io**: Comunicación bidireccional en tiempo real
+- **React Native Maps**: Visualización y seguimiento de ubicaciones
+- **React Navigation**: Navegación entre pantallas
+
+## 🚀 Instalación
+
+1. **Clonar el repositorio**:
+   ```bash
+   git clone https://github.com/DarkCodex29/Carrito-Sockets.git
+   cd carrito-sockets
+   ```
+
+2. **Instalar dependencias**:
    ```bash
    npm install
    ```
 
-2. Start the app
+3. **Configurar Google Maps API**:
+   - Obtén una clave API de Google Maps en [Google Cloud Console](https://console.cloud.google.com/)
+   - Reemplaza `YOUR_API_KEY_HERE` en `android/app/src/main/AndroidManifest.xml` con tu clave
 
+4. **Iniciar la aplicación**:
    ```bash
-    npx expo start
+   npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+5. **Ejecutar en dispositivo o emulador**:
+   - Presiona `a` para Android
+   - Presiona `i` para iOS (solo macOS)
+   - Escanea el código QR con la app Expo Go en tu dispositivo
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 📁 Estructura del proyecto
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+carrito-sockets/
+├── app/             # Archivos de navegación y pantallas principales
+│   └── (tabs)/      # Pestañas principales (usuario, negocio, repartidor)
+├── components/      # Componentes reutilizables
+├── services/        # Servicios (API, sockets, notificaciones)
+├── store/           # Estado global con Redux
+├── types/           # Definiciones de tipos TypeScript
+├── constants/       # Constantes y configuración
+└── assets/          # Recursos estáticos (imágenes, fuentes)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🔍 Solución de problemas comunes
 
-## Learn more
+### El mapa no se muestra
 
-To learn more about developing your project with Expo, look at the following resources:
+1. Verifica que has configurado correctamente la API Key de Google Maps
+2. Asegúrate de tener los permisos de ubicación habilitados en el dispositivo
+3. Comprueba la conexión a internet
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### No se reciben notificaciones o vibraciones
 
-## Join the community
+1. Verifica que el permiso de vibración esté habilitado
+2. El dispositivo puede tener activado el modo "No molestar"
+3. Reinicia la aplicación para restablecer la cola de notificaciones
 
-Join our community of developers creating universal apps.
+### Múltiples modales aparecen simultáneamente
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
-# Carrito-Sockets
+Este problema ha sido corregido implementando un sistema de cola para notificaciones.
+
+## 👥 Desarrollo
+
+Proyecto desarrollado como prueba técnica.
+
+## 📧 Contacto
+
+**Desarrollador**: DarkCodex29
+**GitHub**: [https://github.com/DarkCodex29](https://github.com/DarkCodex29/Carrito-Sockets)

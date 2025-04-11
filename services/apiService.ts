@@ -83,22 +83,16 @@ export class ApiService {
       const orderData = {
         items,
         total,
-        userId: 'customer-123' // Usuario por defecto para la simulación
+        userId: 'customer-123'
       };
       
       const order = await mockBackendService.createOrder(orderData);
       
       // Emitir evento de socket
       await socketService.updateOrderStatus(order.id, OrderStatus.PENDING);
-      
-      // Notificar al negocio
+
+      // Notificar sobre el nuevo pedido
       notificationService.notifyNewOrder(order.id, items, total);
-      
-      // Notificar al cliente que su pedido ha sido creado
-      notificationService.sendLocalNotification(
-        '¡Pedido Creado!', 
-        `Tu pedido #${order.id} ha sido creado con éxito. Ahora está pendiente de confirmación.`
-      );
       
       return order;
     } catch (error) {

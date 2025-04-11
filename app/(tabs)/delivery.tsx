@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
-import { setOrders, updateOrderStatus } from '../../store/orderSlice';
+import { setOrders } from '../../store/orderSlice';
 import { OrderStatusComponent } from '../../components/OrderStatus';
 import apiService from '../../services/apiService';
 import socketService from '../../services/socketService';
 import { OrderStatus } from '../../types/order';
-import authService, { UserRole } from '../../services/authService';
+import { UserRole } from '../../services/authService';
 import { OrderTrackingMap } from '../../components/OrderTrackingMap';
 import { RoleSelector } from '../../components/RoleSelector';
 
@@ -64,14 +64,8 @@ function DeliveryScreenComponent() {
         setSelectedOrder(null);
       }
       
-      // Recargar los pedidos después de actualizar el estado
       loadPreparingOrders();
       
-      // Mostrar mensaje de éxito
-      Alert.alert(
-        'Estado Actualizado',
-        `El pedido #${orderId} ha sido actualizado a "${newStatus}"`
-      );
     } catch (error) {
       console.error('Error al actualizar estado:', error);
       Alert.alert('Error', 'No se pudo actualizar el estado del pedido');

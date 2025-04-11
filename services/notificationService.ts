@@ -24,6 +24,8 @@ class NotificationService {
   private deviceToken: string = '';
   private lastNotification: { title: string; message: string } | null = null;
   private notificationTimeout: ReturnType<typeof setTimeout> | null = null;
+  private notificationQueue: Array<{ title: string; message: string }> = [];
+  private isAlertShowing: boolean = false;
   
   private constructor() {
     console.log('Notification Service inicializado');
@@ -66,6 +68,43 @@ class NotificationService {
     this.messageCallbacks = this.messageCallbacks.filter(cb => cb !== callback);
   }
   
+  // Método para procesar la cola de notificaciones
+  private processNotificationQueue() {
+    if (this.isAlertShowing || this.notificationQueue.length === 0) {
+      return;
+    }
+    
+    const notification = this.notificationQueue.shift();
+    if (notification) {
+      this.isAlertShowing = true;
+      
+      // SIEMPRE hacer vibrar el dispositivo para dar feedback táctil (crucial)
+      console.log('Activando vibración para notificación');
+      Vibration.vibrate(500);
+      
+      // Mostrar la alerta
+      Alert.alert(
+        notification.title,
+        notification.message,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              console.log('Notificación cerrada por el usuario');
+              this.isAlertShowing = false;
+              
+              // Procesar la siguiente notificación en cola
+              setTimeout(() => {
+                this.processNotificationQueue();
+              }, 300);
+            }
+          }
+        ],
+        { cancelable: false }
+      );
+    }
+  }
+  
   // Método para enviar notificaciones simuladas
   public async sendLocalNotification(title: string, body: string, force: boolean = false): Promise<void> {
     console.log('Enviando notificación local:', { title, body });
@@ -79,21 +118,10 @@ class NotificationService {
       return;
     }
     
-    // Hacer vibrar el dispositivo para dar feedback táctil
-    Vibration.vibrate(500);
-    
-    // Mostrar la alerta inmediatamente
-    Alert.alert(
-      title,
-      body,
-      [
-        {
-          text: 'OK',
-          onPress: () => console.log('Notificación cerrada por el usuario')
-        }
-      ],
-      { cancelable: false }
-    );
+    console.log('Añadiendo notificación a la cola:', { title, body });
+    // Añadir a la cola y procesar
+    this.notificationQueue.push({ title, message: body });
+    this.processNotificationQueue();
   }
   
   // Determina si una notificación debe mostrarse para un rol específico
@@ -138,8 +166,10 @@ class NotificationService {
     // Guardar la última notificación
     this.lastNotification = { title, message };
 
-    // Mostrar la alerta
-    Alert.alert(title, message);
+    // Añadir a la cola y procesar
+    console.log('Añadiendo notificación showNotification a la cola:', { title, message });
+    this.notificationQueue.push({ title, message });
+    this.processNotificationQueue();
 
     // Limpiar la última notificación después de 3 segundos
     this.notificationTimeout = setTimeout(() => {
@@ -174,32 +204,56 @@ class NotificationService {
 
     const notification = messages[status];
     if (notification) {
+      console.log(`Enviando notificación de estado para pedido ${orderId}: ${status}`);
       await this.showNotification(notification.title, notification.message);
     }
   }
   
   // Nuevos métodos para simular el flujo de notificaciones
   async notifyNewOrder(orderId: string, items: any[], total: number): Promise<void> {
-    await this.showNotification(
-      'Nuevo Pedido',
-      `Has recibido un nuevo pedido #${orderId} por S/ ${total.toFixed(2)}`
+    console.log(`Notificando nuevo pedido: ${orderId}`);
+    // Usar sendLocalNotification con force=true para asegurar que la notificación se muestre
+    await this.sendLocalNotification(
+      'Nuevo Pedido', 
+      `Has recibido un nuevo pedido #${orderId} por S/ ${total.toFixed(2)}`,
+      true
     );
   }
   
   notifyOrderPreparing(orderId: string): void {
-    this.sendLocalNotification('Pedido en preparación', `El pedido #${orderId} está siendo preparado`);
+    console.log(`Notificando pedido en preparación: ${orderId}`);
+    this.sendLocalNotification(
+      'Pedido en preparación', 
+      `El pedido #${orderId} está siendo preparado`,
+      true
+    );
   }
   
   notifyOrderReady(orderId: string): void {
-    this.sendLocalNotification('Pedido listo para entrega', `El pedido #${orderId} está listo para ser entregado`);
+    console.log(`Notificando pedido listo: ${orderId}`);
+    this.sendLocalNotification(
+      'Pedido listo para entrega', 
+      `El pedido #${orderId} está listo para ser entregado`,
+      true
+    );
   }
   
   notifyOrderOnTheWay(orderId: string): void {
-    this.sendLocalNotification('Pedido en camino', `El pedido #${orderId} está en camino a tu ubicación`);
+    console.log(`Notificando pedido en camino: ${orderId}`);
+    this.sendLocalNotification(
+      'Pedido en camino', 
+      `El pedido #${orderId} está en camino a tu ubicación`,
+      true
+    );
   }
   
   notifyOrderDelivered(orderId: string): void {
-    this.sendLocalNotification('¡Pedido entregado!', `El pedido #${orderId} ha sido entregado`);
+    console.log(`Notificando pedido entregado: ${orderId}`);
+    this.sendLocalNotification(
+      '¡Pedido entregado!', 
+      `El pedido #${orderId} ha sido entregado`,
+      true
+    );
   }
 }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Alert, ActivityIndicator, Text, ScrollView, FlatList, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Alert, ActivityIndicator, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Cart, CartItem } from '../../components/Cart';
 import { OrderStatusComponent } from '../../components/OrderStatus';
@@ -135,6 +135,13 @@ function UserScreenComponent() {
   }, [dispatch]);
 
   useEffect(() => {
+    if (currentOrder) {
+      console.log('Estado actual del pedido:', currentOrder.status);
+      console.log('Debe mostrar mapa:', currentOrder.status === OrderStatus.ON_THE_WAY);
+    }
+  }, [currentOrder]);
+
+  useEffect(() => {
     console.log('Products state:', products);
   }, [products]);
 
@@ -166,27 +173,14 @@ function UserScreenComponent() {
 
   const handleCheckout = async (items: CartItem[], total: number) => {
     try {
-      console.log('Realizando pedido con items:', items);
       
-      // Crear el pedido
       const order = await apiService.createOrder(items, total);
-      console.log('Pedido creado:', order);
       
-      // Actualizar el estado global
       dispatch(setCurrentOrder(order));
-      
-      // Limpiar el carrito
+
       setCartItems([]);
       
-      // Mostrar alerta explícita aquí (además de la que se muestra en el servicio)
-      // Esto es un respaldo por si la notificación del servicio no funciona
-      Alert.alert(
-        '¡Pedido Realizado!',
-        `Tu pedido ha sido enviado al restaurante. ID: ${order.id}`,
-        [{ text: 'OK' }]
-      );
     } catch (error) {
-      console.error('Error al realizar el pedido:', error);
       Alert.alert('Error', 'No se pudo procesar tu pedido. Por favor, intenta nuevamente.');
     }
   };
@@ -243,20 +237,23 @@ function UserScreenComponent() {
           <ProductList products={products as Product[]} onAddToCart={handleAddToCart} />
           
           {currentOrder && (
-            <View style={styles.orderStatus}>
-              <Text style={styles.orderTitle}>Tu pedido #{currentOrder.id}</Text>
-              <OrderStatusComponent status={currentOrder.status} />
-            </View>
-          )}
-          
-          {currentOrder && currentOrder.status === OrderStatus.ON_THE_WAY && (
-            <View style={styles.mapContainer}>
-              <Text style={styles.mapTitle}>Seguimiento de tu pedido</Text>
-              <OrderTrackingMap 
-                orderId={currentOrder.id} 
-                status={currentOrder.status}
-              />
-            </View>
+            <>
+              <View style={styles.orderStatus}>
+                <Text style={styles.orderTitle}>Tu pedido #{currentOrder.id}</Text>
+                <OrderStatusComponent status={currentOrder.status} />
+              </View>
+            
+              {currentOrder.status === OrderStatus.ON_THE_WAY && (
+                <View style={styles.mapContainer}>
+                  <Text style={styles.mapTitle}>Seguimiento de tu pedido</Text>
+                  <OrderTrackingMap 
+                    orderId={currentOrder.id} 
+                    status={currentOrder.status}
+                    key={`map-${currentOrder.id}-${currentOrder.status}`}
+                  />
+                </View>
+              )}
+            </>
           )}
           
           {currentOrder && currentOrder.status === OrderStatus.DELIVERED && !showRating && (

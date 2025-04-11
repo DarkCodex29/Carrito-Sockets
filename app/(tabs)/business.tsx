@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
-import { setOrders, updateOrderStatus } from '../../store/orderSlice';
+import { setOrders } from '../../store/orderSlice';
 import { OrderStatusComponent } from '../../components/OrderStatus';
 import apiService from '../../services/apiService';
-import socketService from '../../services/socketService';
 import { OrderStatus } from '../../types/order';
-import authService, { UserRole } from '../../services/authService';
+import { UserRole } from '../../services/authService';
 import { RoleSelector } from '../../components/RoleSelector';
 
 function BusinessScreenComponent() {
@@ -53,26 +52,11 @@ function BusinessScreenComponent() {
       
       await apiService.updateOrderStatus(orderId, newStatus);
       
-      // Recargar los pedidos después de actualizar el estado
       loadOrders();
       
-      // Mostrar mensaje breve de confirmación
-      Alert.alert('Estado Actualizado', `Pedido #${orderId} ${getStatusText(newStatus)}`);
     } catch (error) {
       console.error('Error al actualizar estado:', error);
       Alert.alert('Error', 'No se pudo actualizar el estado del pedido');
-    }
-  };
-
-  // Obtiene un texto descriptivo para cada estado
-  const getStatusText = (status: OrderStatus): string => {
-    switch (status) {
-      case OrderStatus.PREPARING:
-        return 'en preparación';
-      case OrderStatus.ON_THE_WAY:
-        return 'listo para entrega';
-      default:
-        return status;
     }
   };
 

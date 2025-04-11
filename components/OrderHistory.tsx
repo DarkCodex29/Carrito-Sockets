@@ -5,7 +5,6 @@ import { Order, OrderStatus } from '../types/order';
 import { UserRole } from '../services/authService';
 import socketService from '../services/socketService';
 import notificationService from '../services/notificationService';
-import { OrderRating } from './OrderRating';
 
 interface OrderHistoryProps {
   role: UserRole;
@@ -58,19 +57,6 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({ role }) => {
       );
     } catch (error) {
       console.error('Error actualizando estado:', error);
-    }
-  };
-
-  const handleCompleteOrder = async (orderId: string) => {
-    try {
-      await socketService.completeOrder(orderId);
-      await notificationService.showNotification(
-        'Pedido Completado',
-        `El pedido #${orderId} ha sido marcado como completado`
-      );
-      loadOrders(); // Recargar pedidos
-    } catch (error) {
-      console.error('Error completando pedido:', error);
     }
   };
 
