@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
@@ -17,8 +17,6 @@ function DeliveryScreenComponent() {
   const [loading, setLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.DELIVERY);
-  const [deliverableOrders, setDeliverableOrders] = useState<Set<string>>(new Set());
-  const [activeTimers, setActiveTimers] = useState<{[key: string]: NodeJS.Timeout}>({});
 
   useEffect(() => {
     loadPreparingOrders();
@@ -29,7 +27,6 @@ function DeliveryScreenComponent() {
     });
     
     return () => {
-      Object.values(activeTimers).forEach(timer => clearTimeout(timer));
       unsubscribe();
     };
   }, []);
@@ -54,52 +51,12 @@ function DeliveryScreenComponent() {
     }
   };
 
-  const startDeliveryTimer = (orderId: string) => {
-    const DELIVERY_TIME = 10000;
-    
-    if (activeTimers[orderId]) {
-      clearTimeout(activeTimers[orderId]);
-    }
-
-    const timer = setTimeout(() => {
-      setDeliverableOrders(prev => {
-        const newSet = new Set(prev);
-        newSet.add(orderId);
-        return newSet;
-      });
-      
-      setActiveTimers(prev => {
-        const newTimers = {...prev};
-        delete newTimers[orderId];
-        return newTimers;
-      });
-      
-      Alert.alert('Pedido listo para entregar', 'Ya puedes marcar este pedido como entregado');
-    }, DELIVERY_TIME);
-    
-    setActiveTimers(prev => ({
-      ...prev,
-      [orderId]: timer
-    }));
-  };
-
   const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
     try {
       console.log(`Actualizando estado del pedido ${orderId} a ${newStatus}`);
       
-      if (newStatus === OrderStatus.DELIVERED && !deliverableOrders.has(orderId)) {
-        Alert.alert(
-          'Entrega en progreso', 
-          'El pedido aún está en camino. Debes esperar a llegar al destino antes de marcarlo como entregado.',
-          [{ text: 'Entendido' }]
-        );
-        return;
-      }
-      
       if (newStatus === OrderStatus.ON_THE_WAY) {
         Alert.alert('Iniciando entrega', 'Preparando la entrega del pedido...');
-        
-        startDeliveryTimer(orderId);
       }
       
       await apiService.updateOrderStatus(orderId, newStatus);
@@ -108,12 +65,6 @@ function DeliveryScreenComponent() {
         Alert.alert('Entrega iniciada', 'El cliente ahora puede seguir la entrega en el mapa');
       } else if (newStatus === OrderStatus.DELIVERED) {
         Alert.alert('¡Entrega completada!', 'El pedido ha sido entregado exitosamente');
-        
-        setDeliverableOrders(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(orderId);
-          return newSet;
-        });
       }
       
       if (newStatus === OrderStatus.DELIVERED) {
@@ -132,59 +83,56 @@ function DeliveryScreenComponent() {
     setSelectedOrder(selectedOrder === orderId ? null : orderId);
   };
 
-  const renderOrder = ({ item }: { item: any }) => (
-    <View style={styles.orderCard}>
-      <TouchableOpacity 
-        style={styles.orderHeader}
-        onPress={() => toggleOrderSelection(item.id)}
-      >
-        <Text style={styles.orderId}>Pedido #{item.id}</Text>
-        <Text style={styles.orderTotal}>Total: S/ {item.total}</Text>
-      </TouchableOpacity>
-      
-      <View style={styles.itemsList}>
-        {item.items.map((orderItem: any, index: number) => (
-          <Text key={`item-${item.id}-${orderItem.id || index}`} style={styles.itemText}>
-            {orderItem.quantity}x {orderItem.name}
-          </Text>
-        ))}
+  const renderOrder = ({ item }: { item: any }) => {
+    console.log(`Renderizando pedido ${item.id}, estado: ${item.status}`);
+    
+    return (
+      <View style={styles.orderCard}>
+        <TouchableOpacity 
+          style={styles.orderHeader}
+          onPress={() => toggleOrderSelection(item.id)}
+        >
+          <Text style={styles.orderId}>Pedido #{item.id}</Text>
+          <Text style={styles.orderTotal}>Total: S/ {item.total}</Text>
+        </TouchableOpacity>
+        
+        <View style={styles.itemsList}>
+          {item.items.map((orderItem: any, index: number) => (
+            <Text key={`item-${item.id}-${orderItem.id || index}`} style={styles.itemText}>
+              {orderItem.quantity}x {orderItem.name}
+            </Text>
+          ))}
+        </View>
+
+        <OrderStatusComponent status={item.status} />
+
+        {item.status === OrderStatus.PREPARING && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleStatusUpdate(item.id, OrderStatus.ON_THE_WAY)}
+          >
+            <Text style={styles.actionButtonText}>Recoger Pedido</Text>
+          </TouchableOpacity>
+        )}
+
+        {item.status === OrderStatus.ON_THE_WAY && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleStatusUpdate(item.id, OrderStatus.DELIVERED)}
+          >
+            <Text style={styles.actionButtonText}>Marcar como entregado</Text>
+          </TouchableOpacity>
+        )}
+
+        {selectedOrder === item.id && item.status === OrderStatus.ON_THE_WAY && (
+          <OrderTrackingMap 
+            orderId={item.id} 
+            status={item.status} 
+          />
+        )}
       </View>
-
-      <OrderStatusComponent status={item.status} />
-
-      {item.status === OrderStatus.PREPARING && (
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleStatusUpdate(item.id, OrderStatus.ON_THE_WAY)}
-        >
-          <Text style={styles.actionButtonText}>Iniciar Entrega</Text>
-        </TouchableOpacity>
-      )}
-
-      {item.status === OrderStatus.ON_THE_WAY && (
-        <TouchableOpacity
-          style={[
-            styles.actionButton, 
-            deliverableOrders.has(item.id) ? styles.deliveredButton : styles.disabledButton
-          ]}
-          onPress={() => handleStatusUpdate(item.id, OrderStatus.DELIVERED)}
-        >
-          <Text style={styles.actionButtonText}>
-            {deliverableOrders.has(item.id) 
-              ? "Marcar como entregado" 
-              : "En camino (espera para entregar)"}
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      {selectedOrder === item.id && item.status === OrderStatus.ON_THE_WAY && (
-        <OrderTrackingMap 
-          orderId={item.id} 
-          status={item.status} 
-        />
-      )}
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -305,12 +253,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
     marginTop: 8,
-  },
-  deliveredButton: {
-    backgroundColor: '#34C759',
-  },
-  disabledButton: {
-    backgroundColor: '#999',
   },
   actionButtonText: {
     color: 'white',

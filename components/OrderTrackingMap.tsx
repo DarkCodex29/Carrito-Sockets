@@ -202,7 +202,7 @@ export const OrderTrackingMap: React.FC<OrderTrackingMapProps> = ({
       {mapLoaded && (
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>Tu pedido está en camino</Text>
-          <Text style={styles.estimatedTime}>Tiempo estimado: 15 min</Text>
+          <Text style={styles.estimatedTime}>Tiempo estimado: 5 seg</Text>
         </View>
       )}
     </View>
