@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "584327968734",
+    "project_id": "carrito-sockets",
+    "storage_bucket": "carrito-sockets.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:584327968734:android:d1af293bcb577143360f4f",
+        "android_client_info": {
+          "package_name": "com.darkcodex"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbVzDy59-P7kR05jgbPFN0UJ4nyNDAe7Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

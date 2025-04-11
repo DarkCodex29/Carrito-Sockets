@@ -1,74 +1,187 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
+import { Cart } from '../../components/Cart';
+import { OrderStatusComponent } from '../../components/OrderStatus';
+import { RootState } from '../../store';
+import { setCurrentOrder, updateOrderStatus } from '../../store/orderSlice';
+import socketService, { OrderStatus } from '../../services/socketService';
+import apiService from '../../services/apiService';
+import firebaseNotificationService from '../../services/firebaseNotificationService';
+import authService, { UserRole } from '../../services/authService';
+import { ProductList } from '../../components/ProductList';
+import { OrderTrackingMap } from '../../components/OrderTrackingMap';
+import { mockProducts } from '../../data/mockData';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+function UserScreenComponent() {
+  const dispatch = useDispatch();
+  const currentOrder = useSelector((state: RootState) => state.orders.currentOrder);
+  const [products, setProducts] = useState(mockProducts);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-export default function HomeScreen() {
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const user = authService.getCurrentUser();
+        if (user) {
+          setUserId(user.uid);
+          
+          const userRole = await authService.getCurrentUserRole();
+          if (userRole !== UserRole.CUSTOMER) {
+            Alert.alert('Acceso restringido', 'Esta pantalla es solo para clientes');
+          }
+          
+          return user.uid;
+        } else {
+          setUserId('customer-123');
+          return 'customer-123';
+        }
+      } catch (error) {
+        console.error('Error al verificar usuario:', error);
+        setUserId('customer-123');
+        return 'customer-123';
+      }
+    };
+    
+    const initializeApp = async () => {
+      setIsLoading(true); 
+      
+      try {
+        const uid = await checkUser();
+        
+        socketService.connect(uid);
+        
+        try {
+          await firebaseNotificationService.requestPermissions();
+          
+          const token = await firebaseNotificationService.getToken();
+          if (token) {
+            await firebaseNotificationService.registerUserToken(uid, token);
+          }
+          
+          firebaseNotificationService.subscribeToMessages((message) => {
+            console.log('Mensaje FCM recibido:', message);
+          });
+        } catch (notificationError) {
+          console.warn('No se pudieron configurar las notificaciones:', notificationError);
+        }
+        
+        socketService.subscribeToStatusUpdates(({ orderId, status }) => {
+          dispatch(updateOrderStatus({ orderId, status }));
+          
+          const statusMessages: Record<OrderStatus, string> = {
+            [OrderStatus.PENDING]: 'Tu pedido está pendiente',
+            [OrderStatus.PREPARING]: 'Tu pedido está siendo preparado',
+            [OrderStatus.ON_THE_WAY]: 'Tu pedido está en camino',
+            [OrderStatus.DELIVERED]: 'Tu pedido ha sido entregado',
+          };
+          
+          if (statusMessages[status]) {
+            Alert.alert('Actualización de pedido', statusMessages[status]);
+          }
+        });
+        
+        try {
+          const fetchedProducts = await apiService.getProducts();
+          if (fetchedProducts && fetchedProducts.length > 0) {
+            setProducts(fetchedProducts);
+          }
+        } catch (productsError) {
+          console.error('Error al cargar productos:', productsError);
+        }
+      } catch (error) {
+        console.error('Error al inicializar la app:', error);
+      } finally {
+        setIsLoading(false); 
+      }
+    };
+    
+    initializeApp();
+    
+    return () => {
+      socketService.disconnect();
+    };
+  }, [dispatch]);
+
+  const handleCheckout = async (items: any[], total: number) => {
+    if (!userId) {
+      Alert.alert('Error', 'No se pudo identificar al usuario');
+      return;
+    }
+    
+    try {
+      const order = await apiService.createOrder({
+        items,
+        total,
+        userId,
+      });
+
+      dispatch(setCurrentOrder(order));
+
+      socketService.emitNewOrder(order);
+
+      Alert.alert('Éxito', 'Pedido realizado correctamente');
+    } catch (error) {
+      console.error('Error al crear el pedido:', error);
+      Alert.alert('Error', 'No se pudo realizar el pedido');
+    }
+  };
+
+  const handleAddToCart = (product: any) => {
+    Alert.alert('Producto agregado', `${product.name} ha sido agregado al carrito`);
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <View style={styles.content}>
+        <ProductList products={products} onAddToCart={handleAddToCart} />
+        
+        <Cart onCheckout={handleCheckout} />
+        
+        {currentOrder && (
+          <>
+            <View style={styles.orderStatus}>
+              <OrderStatusComponent status={currentOrder.status} />
+            </View>
+            
+            {currentOrder.status === OrderStatus.ON_THE_WAY && (
+              <OrderTrackingMap 
+                orderId={currentOrder.id} 
+                status={currentOrder.status} 
+              />
+            )}
+          </>
+        )}
+      </View>
+    </View>
   );
 }
 
+export default UserScreenComponent;
+
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  content: {
+    padding: 16,
+  },
+  orderStatus: {
+    marginTop: 16,
     alignItems: 'center',
-    gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
 });
