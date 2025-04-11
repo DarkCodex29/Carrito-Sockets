@@ -84,10 +84,6 @@ carrito-sockets/
 2. El dispositivo puede tener activado el modo "No molestar"
 3. Reinicia la aplicación para restablecer la cola de notificaciones
 
-### Múltiples modales aparecen simultáneamente
-
-Este problema ha sido corregido implementando un sistema de cola para notificaciones.
-
 ## 👥 Desarrollo
 
 Proyecto desarrollado como prueba técnica.
