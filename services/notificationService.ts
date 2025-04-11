@@ -1,14 +1,15 @@
 /**
  * Servicio de notificaciones simulado
  */
-import { Alert, Platform } from 'react-native';
-import { OrderStatus } from './socketService';
+import { Alert, Platform, Vibration } from 'react-native';
+import { OrderStatus } from '../types/order';
+import authService, { UserRole } from '../services/authService';
 
 interface NotificationMessage {
   title: string;
   body: string;
   data?: {
-    [key: string]: string;
+    [key: string]: any;
   };
 }
 
@@ -21,15 +22,17 @@ class NotificationService {
   private messageCallbacks: MessageCallback[] = [];
   private permissionsGranted: boolean = false;
   private deviceToken: string = '';
+  private lastNotification: { title: string; message: string } | null = null;
+  private notificationTimeout: ReturnType<typeof setTimeout> | null = null;
   
   private constructor() {
-    console.log('Notification Service inicializado en modo simulado');
+    console.log('Notification Service inicializado');
     
     // Generar un token simulado
     this.deviceToken = `mock-token-${Platform.OS}-${Date.now()}`;
   }
   
-  static getInstance(): NotificationService {
+  public static getInstance(): NotificationService {
     if (!NotificationService.instance) {
       NotificationService.instance = new NotificationService();
     }
@@ -64,53 +67,139 @@ class NotificationService {
   }
   
   // Método para enviar notificaciones simuladas
-  sendLocalNotification(notification: NotificationMessage): void {
-    console.log('Notificación local enviada:', notification);
+  public async sendLocalNotification(title: string, body: string, force: boolean = false): Promise<void> {
+    console.log('Enviando notificación local:', { title, body });
     
-    // Simular recepción de notificación
-    this.messageCallbacks.forEach(callback => {
-      try {
-        callback(notification);
-      } catch (error) {
-        console.error('Error en callback de notificación:', error);
-      }
-    });
+    // Verificar que el usuario actual debe recibir esta notificación
+    const currentRole = await authService.getCurrentUserRole();
     
-    // En desarrollo también mostramos un Alert
-    Alert.alert(notification.title, notification.body);
+    // Si no se fuerza la notificación, verificar el rol adecuado para la notificación
+    if (!force && !this.shouldShowNotificationForRole(title, currentRole)) {
+      console.log(`Notificación suprimida para rol ${currentRole}:`, { title, body });
+      return;
+    }
+    
+    // Hacer vibrar el dispositivo para dar feedback táctil
+    Vibration.vibrate(500);
+    
+    // Mostrar la alerta inmediatamente
+    Alert.alert(
+      title,
+      body,
+      [
+        {
+          text: 'OK',
+          onPress: () => console.log('Notificación cerrada por el usuario')
+        }
+      ],
+      { cancelable: false }
+    );
+  }
+  
+  // Determina si una notificación debe mostrarse para un rol específico
+  private shouldShowNotificationForRole(title: string, role: UserRole): boolean {
+    // Notificaciones para el Cliente
+    if (role === UserRole.CUSTOMER) {
+      return title.includes('Pedido Creado') || 
+             title.includes('Pedido en Preparación') || 
+             title.includes('Pedido en Camino') ||
+             title.includes('¡Pedido Entregado!');
+    }
+    
+    // Notificaciones para el Negocio
+    if (role === UserRole.BUSINESS) {
+      return title.includes('Nuevo Pedido');
+    }
+    
+    // Notificaciones para el Repartidor
+    if (role === UserRole.DELIVERY) {
+      return title.includes('Pedido Listo para Entrega') || 
+             title.includes('Nueva Entrega');
+    }
+    
+    return true; // Por defecto, mostrar la notificación
+  }
+  
+  async showNotification(title: string, message: string) {
+    // Evitar notificaciones duplicadas
+    if (
+      this.lastNotification?.title === title &&
+      this.lastNotification?.message === message
+    ) {
+      console.log('Notificación duplicada suprimida:', { title, message });
+      return;
+    }
+
+    // Limpiar el timeout anterior si existe
+    if (this.notificationTimeout) {
+      clearTimeout(this.notificationTimeout);
+    }
+
+    // Guardar la última notificación
+    this.lastNotification = { title, message };
+
+    // Mostrar la alerta
+    Alert.alert(title, message);
+
+    // Limpiar la última notificación después de 3 segundos
+    this.notificationTimeout = setTimeout(() => {
+      this.lastNotification = null;
+    }, 3000);
   }
   
   // Enviar notificación según el estado de la orden
-  sendOrderStatusNotification(orderId: string, status: OrderStatus): void {
-    const statusMessages: Record<OrderStatus, {title: string, body: string}> = {
+  async sendOrderStatusNotification(orderId: string, status: OrderStatus): Promise<void> {
+    const messages: Record<OrderStatus, { title: string; message: string }> = {
       [OrderStatus.PENDING]: {
-        title: 'Pedido Recibido',
-        body: `Tu pedido #${orderId} ha sido recibido y está pendiente.`
+        title: 'Pedido pendiente',
+        message: `Tu pedido #${orderId} está pendiente de confirmación`
       },
       [OrderStatus.PREPARING]: {
-        title: 'Pedido en Preparación',
-        body: `Tu pedido #${orderId} está siendo preparado.`
+        title: 'Pedido en preparación',
+        message: `Tu pedido #${orderId} está siendo preparado`
       },
       [OrderStatus.ON_THE_WAY]: {
-        title: 'Pedido en Camino',
-        body: `¡Tu pedido #${orderId} está en camino!`
+        title: 'Pedido en camino',
+        message: `Tu pedido #${orderId} está en camino`
       },
       [OrderStatus.DELIVERED]: {
-        title: 'Pedido Entregado',
-        body: `Tu pedido #${orderId} ha sido entregado. ¡Buen provecho!`
+        title: 'Pedido entregado',
+        message: `Tu pedido #${orderId} ha sido entregado`
+      },
+      [OrderStatus.CANCELLED]: {
+        title: 'Pedido cancelado',
+        message: `Tu pedido #${orderId} ha sido cancelado`
       }
     };
-    
-    const messageData = statusMessages[status];
-    
-    this.sendLocalNotification({
-      title: messageData.title,
-      body: messageData.body,
-      data: {
-        orderId,
-        status
-      }
-    });
+
+    const notification = messages[status];
+    if (notification) {
+      await this.showNotification(notification.title, notification.message);
+    }
+  }
+  
+  // Nuevos métodos para simular el flujo de notificaciones
+  async notifyNewOrder(orderId: string, items: any[], total: number): Promise<void> {
+    await this.showNotification(
+      'Nuevo Pedido',
+      `Has recibido un nuevo pedido #${orderId} por S/ ${total.toFixed(2)}`
+    );
+  }
+  
+  notifyOrderPreparing(orderId: string): void {
+    this.sendLocalNotification('Pedido en preparación', `El pedido #${orderId} está siendo preparado`);
+  }
+  
+  notifyOrderReady(orderId: string): void {
+    this.sendLocalNotification('Pedido listo para entrega', `El pedido #${orderId} está listo para ser entregado`);
+  }
+  
+  notifyOrderOnTheWay(orderId: string): void {
+    this.sendLocalNotification('Pedido en camino', `El pedido #${orderId} está en camino a tu ubicación`);
+  }
+  
+  notifyOrderDelivered(orderId: string): void {
+    this.sendLocalNotification('¡Pedido entregado!', `El pedido #${orderId} ha sido entregado`);
   }
 }
 

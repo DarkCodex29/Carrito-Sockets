@@ -1,7 +1,7 @@
-import { collection, doc, onSnapshot, updateDoc, addDoc, Timestamp } from 'firebase/firestore'; // Eliminada la importación de setDoc
+import { collection, doc, onSnapshot, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { Order } from '../data/mockData';
-import { OrderStatus } from '../services/socketService'; // Importando OrderStatus del lugar correcto
+import { OrderStatus } from '../types/order';
 
 
 class FirebaseRealtimeService {

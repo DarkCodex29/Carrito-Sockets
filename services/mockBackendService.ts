@@ -1,9 +1,4 @@
-/**
- * Servicio que simula un backend completo para la aplicación
- * Incluye almacenamiento local y simulación de API REST
- */
-
-import { OrderStatus } from './socketService';
+import { OrderStatus } from '../types/order';
 
 export interface Product {
   id: string;
@@ -26,7 +21,7 @@ export interface Order {
   total: number;
   userId: string;
   status: OrderStatus;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface User {
@@ -110,11 +105,11 @@ class MockBackendService {
       total: orderData.total,
       userId: orderData.userId,
       status: OrderStatus.PENDING,
-      createdAt: new Date()
+      createdAt: new Date().toISOString()
     };
     
     this.orders.push(newOrder);
-    return newOrder;
+    return { ...newOrder };
   }
   
   async getOrder(orderId: string): Promise<Order | null> {
@@ -150,6 +145,11 @@ class MockBackendService {
   async getPreparingOrders(): Promise<Order[]> {
     await this.delay();
     return this.orders.filter(order => order.status === OrderStatus.PREPARING);
+  }
+  
+  async getOrdersInWay(): Promise<Order[]> {
+    await this.delay();
+    return this.orders.filter(order => order.status === OrderStatus.ON_THE_WAY);
   }
   
   // Auth API

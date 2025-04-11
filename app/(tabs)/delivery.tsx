@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setOrders, updateOrderStatus } from '../../store/orderSlice';
 import { OrderStatusComponent } from '../../components/OrderStatus';
 import apiService from '../../services/apiService';
-import socketService, { OrderStatus } from '../../services/socketService';
+import socketService from '../../services/socketService';
+import { OrderStatus } from '../../types/order';
 import authService, { UserRole } from '../../services/authService';
 import { OrderTrackingMap } from '../../components/OrderTrackingMap';
 import { RoleSelector } from '../../components/RoleSelector';
@@ -19,6 +20,16 @@ function DeliveryScreenComponent() {
 
   useEffect(() => {
     loadPreparingOrders();
+    
+    // Suscribirse a los cambios de estado de los pedidos
+    const unsubscribe = socketService.subscribeToOrderUpdates((orderId, status) => {
+      console.log(`Actualización de pedido recibida: ${orderId} - ${status}`);
+      loadPreparingOrders();
+    });
+    
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleRoleChange = async (role: UserRole) => {
@@ -32,11 +43,11 @@ function DeliveryScreenComponent() {
   const loadPreparingOrders = async () => {
     try {
       setLoading(true);
-      const preparingOrders = await apiService.getPreparingOrders();
-      dispatch(setOrders(preparingOrders));
+      const ordersInWay = await apiService.getOrdersInWay();
+      dispatch(setOrders(ordersInWay));
     } catch (error) {
-      console.error('Error al cargar pedidos en preparación:', error);
-      Alert.alert('Error', 'No se pudieron cargar los pedidos en preparación');
+      console.error('Error al cargar pedidos en camino:', error);
+      Alert.alert('Error', 'No se pudieron cargar los pedidos en camino');
     } finally {
       setLoading(false);
     }
@@ -44,13 +55,23 @@ function DeliveryScreenComponent() {
 
   const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
     try {
+      console.log(`Actualizando estado del pedido ${orderId} a ${newStatus}`);
+      
       await apiService.updateOrderStatus(orderId, newStatus);
-      socketService.emitStatusUpdate(orderId, newStatus);
-      dispatch(updateOrderStatus({ orderId, status: newStatus }));
+      
+      // Si el pedido fue entregado, deseleccionarlo
       if (newStatus === OrderStatus.DELIVERED) {
         setSelectedOrder(null);
       }
-      Alert.alert('Éxito', 'Estado del pedido actualizado correctamente');
+      
+      // Recargar los pedidos después de actualizar el estado
+      loadPreparingOrders();
+      
+      // Mostrar mensaje de éxito
+      Alert.alert(
+        'Estado Actualizado',
+        `El pedido #${orderId} ha sido actualizado a "${newStatus}"`
+      );
     } catch (error) {
       console.error('Error al actualizar estado:', error);
       Alert.alert('Error', 'No se pudo actualizar el estado del pedido');
@@ -95,7 +116,7 @@ function DeliveryScreenComponent() {
           style={[styles.actionButton, styles.deliveredButton]}
           onPress={() => handleStatusUpdate(item.id, OrderStatus.DELIVERED)}
         >
-          <Text style={styles.actionButtonText}>Marcar como Entregado</Text>
+          <Text style={styles.actionButtonText}>Marcar como entregado</Text>
         </TouchableOpacity>
       )}
 
@@ -110,10 +131,10 @@ function DeliveryScreenComponent() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <RoleSelector onRoleChange={handleRoleChange} />
+      <View style={styles.header}>
+        <RoleSelector onRoleChange={handleRoleChange} initialRole={UserRole.DELIVERY} />
         
-        <Text style={styles.title}>Pedidos para Entrega</Text>
+        <Text style={styles.title}>Pedidos en Camino</Text>
         
         {currentRole !== UserRole.DELIVERY && (
           <View style={styles.infoCard}>
@@ -122,23 +143,28 @@ function DeliveryScreenComponent() {
             </Text>
           </View>
         )}
-      </ScrollView>
+      </View>
       
-      <View style={styles.listContainer}>
+      {loading ? (
+        <ActivityIndicator size="large" color="#007AFF" />
+      ) : (
         <FlatList
           data={orders}
           renderItem={renderOrder}
-          keyExtractor={item => item.id}
-          refreshing={loading}
-          onRefresh={loadPreparingOrders}
-          contentContainerStyle={orders.length === 0 ? styles.emptyListContainer : undefined}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No hay pedidos en preparación</Text>
-            </View>
-          }
+          keyExtractor={(item) => item.id}
+          style={styles.ordersList}
+          contentContainerStyle={styles.ordersListContent}
         />
-      </View>
+      )}
+      
+      {selectedOrder && (
+        <View style={styles.mapContainer}>
+          <OrderTrackingMap 
+            orderId={selectedOrder} 
+            status={OrderStatus.ON_THE_WAY}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -150,26 +176,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  scrollView: {
-    flexGrow: 0,
-  },
-  scrollContent: {
+  header: {
     padding: 16,
-  },
-  listContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  emptyListContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#fff',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
+  },
+  infoCard: {
+    backgroundColor: '#f1f9ff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#cce5ff',
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#0066cc',
+    textAlign: 'center',
+  },
+  ordersList: {
+    flex: 1,
+  },
+  ordersListContent: {
+    padding: 16,
+  },
+  mapContainer: {
+    height: 300,
+    margin: 16,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   orderCard: {
     backgroundColor: '#f8f8f8',
@@ -228,17 +267,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  infoCard: {
-    backgroundColor: '#f1f9ff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#cce5ff',
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#0066cc',
-    textAlign: 'center',
-  }
 });

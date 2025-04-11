@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 
 export interface CartItem {
@@ -10,26 +10,35 @@ export interface CartItem {
 
 interface CartProps {
   onCheckout: (items: CartItem[], total: number) => void;
+  items?: CartItem[];
+  onUpdateItems?: (items: CartItem[]) => void;
 }
 
-export function Cart({ onCheckout }: CartProps) {
+export function Cart({ onCheckout, items: externalItems, onUpdateItems }: CartProps) {
   // Estado local para el carrito
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(externalItems || []);
+  
+  // Actualizar el estado local cuando cambian los items externos
+  useEffect(() => {
+    if (externalItems) {
+      setItems(externalItems);
+    }
+  }, [externalItems]);
   
   // Para depuración
   React.useEffect(() => {
     console.log('Cart items:', items);
   }, [items]);
 
-  // Agregamos datos de ejemplo para simular
+  // Agregamos datos de ejemplo para simular solo si no hay items externos
   React.useEffect(() => {
-    if (items.length === 0) {
+    if (items.length === 0 && !externalItems) {
       setItems([
         { id: 'product-01', name: 'Hamburguesa Clásica', price: 20, quantity: 1 },
         { id: 'product-02', name: 'Papas Fritas', price: 8, quantity: 1 }
       ]);
     }
-  }, []);
+  }, [externalItems]);
 
   // Calcula el total del pedido
   const calculateTotal = () => {
@@ -38,27 +47,44 @@ export function Cart({ onCheckout }: CartProps) {
 
   // Incrementa la cantidad de un producto
   const incrementQuantity = (id: string) => {
-    setItems(
-      items.map(item =>
-        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
-      )
+    const updatedItems = items.map(item =>
+      item.id === id ? { ...item, quantity: item.quantity + 1 } : item
     );
+    setItems(updatedItems);
+    
+    // Notificar al componente padre si existe onUpdateItems
+    if (onUpdateItems) {
+      onUpdateItems(updatedItems);
+    }
   };
 
   // Decrementa la cantidad de un producto
   const decrementQuantity = (id: string) => {
-    setItems(
-      items.map(item =>
+    const updatedItems = items
+      .map(item =>
         item.id === id && item.quantity > 1
           ? { ...item, quantity: item.quantity - 1 }
           : item
-      ).filter(item => !(item.id === id && item.quantity <= 1))
-    );
+      )
+      .filter(item => !(item.id === id && item.quantity <= 1));
+    
+    setItems(updatedItems);
+    
+    // Notificar al componente padre si existe onUpdateItems
+    if (onUpdateItems) {
+      onUpdateItems(updatedItems);
+    }
   };
 
   // Elimina un producto del carrito
   const removeItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+    const updatedItems = items.filter(item => item.id !== id);
+    setItems(updatedItems);
+    
+    // Notificar al componente padre si existe onUpdateItems
+    if (onUpdateItems) {
+      onUpdateItems(updatedItems);
+    }
   };
 
   // Renderiza un elemento del carrito
@@ -106,6 +132,7 @@ export function Cart({ onCheckout }: CartProps) {
         renderItem={renderCartItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.cartItems}
+        scrollEnabled={false}
       />
       
       <View style={styles.totalContainer}>

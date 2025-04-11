@@ -50,7 +50,7 @@ class FirebaseNotificationService {
   
   async sendNotification(token: string, notification: { title: string, body: string, data?: any }): Promise<void> {
     console.log('Enviando notificación simulada:', notification);
-    notificationService.sendLocalNotification(notification);
+    notificationService.sendLocalNotification(notification.title, notification.body);
   }
 }
 

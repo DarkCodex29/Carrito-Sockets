@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setOrders, updateOrderStatus } from '../../store/orderSlice';
 import { OrderStatusComponent } from '../../components/OrderStatus';
 import apiService from '../../services/apiService';
-import socketService, { OrderStatus } from '../../services/socketService';
+import socketService from '../../services/socketService';
+import { OrderStatus } from '../../types/order';
 import authService, { UserRole } from '../../services/authService';
 import { RoleSelector } from '../../components/RoleSelector';
 
@@ -14,27 +15,33 @@ function BusinessScreenComponent() {
   const orders = useSelector((state: RootState) => state.orders.orders);
   const [loading, setLoading] = useState(false);
   const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.BUSINESS);
+  const [filter, setFilter] = useState<'pending' | 'preparing'>('pending');
 
   useEffect(() => {
-    loadPendingOrders();
-  }, []);
+    loadOrders();
+  }, [filter]);
 
   const handleRoleChange = async (role: UserRole) => {
     setCurrentRole(role);
     // Si es el rol de negocio, cargar pedidos
     if (role === UserRole.BUSINESS) {
-      loadPendingOrders();
+      loadOrders();
     }
   };
 
-  const loadPendingOrders = async () => {
+  const loadOrders = async () => {
     try {
       setLoading(true);
-      const pendingOrders = await apiService.getPendingOrders(); 
-      dispatch(setOrders(pendingOrders));
+      if (filter === 'pending') {
+        const pendingOrders = await apiService.getPendingOrders();
+        dispatch(setOrders(pendingOrders));
+      } else {
+        const preparingOrders = await apiService.getPreparingOrders();
+        dispatch(setOrders(preparingOrders));
+      }
     } catch (error) {
-      console.error('Error al cargar pedidos pendientes:', error);
-      Alert.alert('Error', 'No se pudieron cargar los pedidos pendientes');
+      console.error(`Error al cargar pedidos ${filter}:`, error);
+      Alert.alert('Error', `No se pudieron cargar los pedidos ${filter}`);
     } finally {
       setLoading(false);
     }
@@ -42,16 +49,30 @@ function BusinessScreenComponent() {
 
   const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
     try {
+      console.log(`Actualizando estado del pedido ${orderId} a ${newStatus}`);
+      
       await apiService.updateOrderStatus(orderId, newStatus);
       
-      socketService.emitStatusUpdate(orderId, newStatus);
+      // Recargar los pedidos después de actualizar el estado
+      loadOrders();
       
-      dispatch(updateOrderStatus({ orderId, status: newStatus }));
-      
-      Alert.alert('Éxito', 'Estado del pedido actualizado correctamente');
+      // Mostrar mensaje breve de confirmación
+      Alert.alert('Estado Actualizado', `Pedido #${orderId} ${getStatusText(newStatus)}`);
     } catch (error) {
       console.error('Error al actualizar estado:', error);
       Alert.alert('Error', 'No se pudo actualizar el estado del pedido');
+    }
+  };
+
+  // Obtiene un texto descriptivo para cada estado
+  const getStatusText = (status: OrderStatus): string => {
+    switch (status) {
+      case OrderStatus.PREPARING:
+        return 'en preparación';
+      case OrderStatus.ON_THE_WAY:
+        return 'listo para entrega';
+      default:
+        return status;
     }
   };
 
@@ -75,7 +96,16 @@ function BusinessScreenComponent() {
           style={styles.actionButton}
           onPress={() => handleStatusUpdate(item.id, OrderStatus.PREPARING)}
         >
-          <Text style={styles.actionButtonText}>Comenzar Preparación</Text>
+          <Text style={styles.actionButtonText}>Comenzar preparación</Text>
+        </TouchableOpacity>
+      )}
+
+      {item.status === OrderStatus.PREPARING && (
+        <TouchableOpacity
+          style={[styles.actionButton, styles.readyButton]}
+          onPress={() => handleStatusUpdate(item.id, OrderStatus.ON_THE_WAY)}
+        >
+          <Text style={styles.actionButtonText}>Marcar como listo</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -83,10 +113,28 @@ function BusinessScreenComponent() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <RoleSelector onRoleChange={handleRoleChange} />
+      <View style={styles.header}>
+        <RoleSelector onRoleChange={handleRoleChange} initialRole={UserRole.BUSINESS} />
         
-        <Text style={styles.title}>Pedidos Pendientes</Text>
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, filter === 'pending' && styles.activeTab]}
+            onPress={() => setFilter('pending')}
+          >
+            <Text style={[styles.tabText, filter === 'pending' && styles.activeTabText]}>
+              Pedidos pendientes
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.tab, filter === 'preparing' && styles.activeTab]}
+            onPress={() => setFilter('preparing')}
+          >
+            <Text style={[styles.tabText, filter === 'preparing' && styles.activeTabText]}>
+              En preparación
+            </Text>
+          </TouchableOpacity>
+        </View>
         
         {currentRole !== UserRole.BUSINESS && (
           <View style={styles.infoCard}>
@@ -95,23 +143,28 @@ function BusinessScreenComponent() {
             </Text>
           </View>
         )}
-      </ScrollView>
+      </View>
       
-      <View style={styles.listContainer}>
+      {loading ? (
+        <ActivityIndicator size="large" color="#007AFF" />
+      ) : (
         <FlatList
           data={orders}
           renderItem={renderOrder}
-          keyExtractor={item => item.id}
-          refreshing={loading}
-          onRefresh={loadPendingOrders}
-          contentContainerStyle={orders.length === 0 ? styles.emptyListContainer : undefined}
+          keyExtractor={(item) => item.id}
+          style={styles.ordersList}
+          contentContainerStyle={styles.ordersListContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No hay pedidos pendientes</Text>
+              <Text style={styles.emptyText}>
+                {filter === 'pending' 
+                  ? 'No hay pedidos pendientes' 
+                  : 'No hay pedidos en preparación'}
+              </Text>
             </View>
           }
         />
-      </View>
+      )}
     </View>
   );
 }
@@ -180,6 +233,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  readyButton: {
+    backgroundColor: '#34C759', // Color verde para acciones de completado
+  },
   actionButtonText: {
     color: 'white',
     fontWeight: 'bold',
@@ -207,5 +263,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0066cc',
     textAlign: 'center',
-  }
+  },
+  ordersList: {
+    flex: 1,
+  },
+  header: {
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  ordersListContent: {
+    padding: 16,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+  },
+  activeTab: {
+    borderColor: '#007AFF',
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  activeTabText: {
+    color: '#007AFF',
+  },
 });

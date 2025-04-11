@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { OrderStatus } from '../services/socketService';
+import { OrderStatus } from '../types/order';
 
 interface Order {
   id: string;

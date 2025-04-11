@@ -18,28 +18,10 @@ class AuthService {
     role: UserRole.CUSTOMER 
   };
   private currentRole: UserRole = UserRole.CUSTOMER;
-  private initialized: boolean = false;
+  private initialized: boolean = true; // Inicializado por defecto
   
   private constructor() {
     console.log('Auth Service inicializado con valores simulados');
-    // Cargar usuario por defecto inmediatamente
-    this.loadInitialUser();
-  }
-  
-  private async loadInitialUser() {
-    try {
-      const user = await mockBackendService.getCurrentUser();
-      if (user) {
-        this.currentUser = user;
-        this.currentRole = user.role as UserRole;
-      }
-      this.initialized = true;
-      console.log(`Usuario inicial cargado: ${this.currentUser.id}`);
-    } catch (error) {
-      console.error('Error al cargar usuario inicial:', error);
-      // Mantenemos el usuario por defecto
-      this.initialized = true;
-    }
   }
   
   static getInstance(): AuthService {
@@ -49,43 +31,28 @@ class AuthService {
     return AuthService.instance;
   }
   
-  // Aseguramos que el servicio está inicializado antes de devolver datos
-  private async ensureInitialized(): Promise<void> {
-    if (!this.initialized) {
-      await new Promise<void>(resolve => {
-        const checkInterval = setInterval(() => {
-          if (this.initialized) {
-            clearInterval(checkInterval);
-            resolve();
-          }
-        }, 50);
-      });
-    }
-  }
-  
-  async isAuthenticated(): Promise<boolean> {
-    await this.ensureInitialized();
-    return true; // Siempre autenticado en modo simulación
-  }
-  
   async getCurrentUser(): Promise<User> {
-    await this.ensureInitialized();
     return this.currentUser;
   }
   
   async getCurrentUserRole(): Promise<UserRole> {
-    await this.ensureInitialized();
     return this.currentRole;
   }
   
+  async isAuthenticated(): Promise<boolean> {
+    return true; // Siempre autenticado en modo simulación
+  }
+  
   async hasRole(role: UserRole): Promise<boolean> {
-    await this.ensureInitialized();
     return this.currentRole === role;
   }
   
   // Método para cambiar de rol simulando diferentes usuarios
   async switchRole(role: UserRole): Promise<void> {
-    await this.ensureInitialized();
+    // Si ya estamos en este rol, no hacer nada
+    if (this.currentRole === role) {
+      return;
+    }
     
     let userId;
     switch (role) {
@@ -100,18 +67,20 @@ class AuthService {
         break;
     }
     
-    const user = await mockBackendService.getUserById(userId);
-    if (user) {
-      this.currentUser = user;
-      this.currentRole = role;
-      console.log(`Rol cambiado a: ${role}, usuario: ${userId}`);
+    try {
+      const user = await mockBackendService.getUserById(userId);
+      if (user) {
+        this.currentUser = user;
+        this.currentRole = role;
+        console.log(`Rol cambiado a: ${role}, usuario: ${userId}`);
+      }
+    } catch (error) {
+      console.error('Error al cambiar rol:', error);
     }
   }
   
   // Simula login de usuarios según su rol
   async loginWithRole(role: UserRole): Promise<User> {
-    await this.ensureInitialized();
-    
     let userId;
     switch (role) {
       case UserRole.BUSINESS:

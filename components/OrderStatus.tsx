@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { OrderStatus } from '../services/socketService';
+import { OrderStatus } from '../types/order';
 
 interface OrderStatusProps {
   status: OrderStatus;

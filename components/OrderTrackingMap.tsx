@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { FontAwesome } from '@expo/vector-icons';
-import { OrderStatus } from '../services/socketService';
+import { OrderStatus } from '../types/order';
 
 interface Location {
   latitude: number;
@@ -24,20 +24,21 @@ export const OrderTrackingMap: React.FC<OrderTrackingMapProps> = ({
   orderId,
   status,
   initialRegion = {
-    latitude: 19.4326,
-    longitude: -99.1332,
+    latitude: -6.7714,
+    longitude: -79.8409,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
+    
   },
 }) => {
   const [deliveryLocation, setDeliveryLocation] = useState<Location | null>(null);
   const [businessLocation] = useState<Location>({
-    latitude: 19.4326,
-    longitude: -99.1332,
+    latitude: -6.7714,
+    longitude: -79.8409,
   });
   const [customerLocation] = useState<Location>({
-    latitude: 19.4361,
-    longitude: -99.1362,
+    latitude: -6.7714,
+    longitude: -79.8409,
   });
 
   useEffect(() => {

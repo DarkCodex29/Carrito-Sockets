@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import authService, { UserRole } from '../services/authService';
 
 interface RoleSelectorProps {
   onRoleChange?: (role: UserRole) => void;
+  initialRole?: UserRole;
 }
 
-export function RoleSelector({ onRoleChange }: RoleSelectorProps) {
-  const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.CUSTOMER);
+export function RoleSelector({ onRoleChange, initialRole }: RoleSelectorProps) {
+  const [currentRole, setCurrentRole] = useState<UserRole>(initialRole || UserRole.CUSTOMER);
   
   useEffect(() => {
-    // Obtener el rol actual al montar el componente
+    // Si se proporciona un initialRole, usarlo
+    if (initialRole) {
+      setCurrentRole(initialRole);
+      return;
+    }
+    
+    // Si no, obtener el rol actual al montar el componente
     const getCurrentRole = async () => {
       try {
         const role = await authService.getCurrentUserRole();
@@ -21,22 +28,21 @@ export function RoleSelector({ onRoleChange }: RoleSelectorProps) {
     };
     
     getCurrentRole();
-  }, []);
+  }, [initialRole]);
   
   const handleRoleChange = async (role: UserRole) => {
     try {
-      await authService.switchRole(role);
-      setCurrentRole(role);
-      
-      if (onRoleChange) {
-        onRoleChange(role);
+      // Solo cambiar si es diferente al rol actual
+      if (role !== currentRole) {
+        await authService.switchRole(role);
+        setCurrentRole(role);
+        
+        if (onRoleChange) {
+          onRoleChange(role);
+        }
       }
-      
-      // Mostrar mensaje de confirmación
-      Alert.alert('Rol Cambiado', `Ahora estás usando la aplicación como: ${getRoleName(role)}`);
     } catch (error) {
       console.error('Error al cambiar rol:', error);
-      Alert.alert('Error', 'No se pudo cambiar el rol');
     }
   };
   

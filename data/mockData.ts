@@ -1,4 +1,4 @@
-import { OrderStatus } from '../services/socketService';
+import { OrderStatus } from '../types/order';
 
 // Interfaces
 export interface Product {

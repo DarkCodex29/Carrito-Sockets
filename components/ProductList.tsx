@@ -61,6 +61,7 @@ export function ProductList({ products, onAddToCart }: ProductListProps) {
         renderItem={renderProduct}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
+        scrollEnabled={false}
       />
     </View>
   );
